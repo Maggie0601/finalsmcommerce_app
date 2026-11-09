@@ -313,20 +313,24 @@ class _HomeScreenState extends State<HomeScreen> {
                   return const Center(child: Text("No items available in menu.", style: TextStyle(color: AppColors.textMuted)));
                 }
 
-                final products = docs.map((doc) => Product.fromFirestore(doc)).where((p) {
-                  final matchesCategory = _selectedCategory == 'All' ||
-                      p.category.toLowerCase() == _selectedCategory.toLowerCase();
+                  final products = docs.map((doc) => Product.fromFirestore(doc)).where((p) {
+                    // 1. Primary category match
+                    final matchesCategory = _selectedCategory == 'All' ||
+                        p.category.toLowerCase() == _selectedCategory.toLowerCase();
 
-                  final matchesSubCategory = _selectedCategory != 'Beverages' ||
-                      _selectedBeverageSubCategory == 'All' ||
-                      p.category.toLowerCase() == _selectedBeverageSubCategory.toLowerCase();
+                    // 2. Beverage subcategory match (checks p.subCategory, not p.category!)
+                    final matchesSubCategory = _selectedCategory != 'Beverages' ||
+                        _selectedBeverageSubCategory == 'All' ||
+                        p.subCategory.trim().toLowerCase() == _selectedBeverageSubCategory.trim().toLowerCase();
 
-                  final matchesSearch = _searchQuery.isEmpty ||
-                      p.productName.toLowerCase().contains(_searchQuery) ||
-                      p.description.toLowerCase().contains(_searchQuery);
+                    // 3. Search query match
+                    final matchesSearch = _searchQuery.isEmpty ||
+                        p.productName.toLowerCase().contains(_searchQuery) ||
+                        p.description.toLowerCase().contains(_searchQuery) ||
+                        p.subCategory.toLowerCase().contains(_searchQuery);
 
-                  return matchesCategory && matchesSubCategory && matchesSearch;
-                }).toList();
+                    return matchesCategory && matchesSubCategory && matchesSearch;
+                  }).toList();
 
                 if (products.isEmpty) {
                   return const Center(child: Text("No matching items found.", style: TextStyle(color: AppColors.textMuted)));
