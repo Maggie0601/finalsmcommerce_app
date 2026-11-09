@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  static const Color background = Color(0xFFFBF8F2);
+  static const Color background = Color(0xFFECE3D4);
   static const Color surface = Colors.white;
   static const Color espresso = Color(0xFF3A2312);
   static const Color espressoLight = Color(0xFF5D3E28);
