@@ -8,6 +8,7 @@ class Product {
   final String imageUrl;
   final int stock;
   final String category;
+  final String subCategory;
 
   Product({
     required this.id,
@@ -17,10 +18,11 @@ class Product {
     required this.imageUrl,
     required this.stock,
     required this.category,
+    this.subCategory = '',
   });
 
   factory Product.fromFirestore(DocumentSnapshot doc) {
-    Map<String, dynamic> data = doc.data() as Map<String, dynamic>? ?? {};
+    final data = doc.data() as Map<String, dynamic>? ?? {};
     return Product(
       id: doc.id,
       productName: data['productName'] ?? 'Unnamed Item',
@@ -29,6 +31,7 @@ class Product {
       imageUrl: data['imageUrl'] ?? 'https://picsum.photos/300/200?random=1',
       stock: (data['stock'] is num) ? (data['stock'] as num).toInt() : 0,
       category: data['category'] ?? 'All',
+      subCategory: data['subCategory'] ?? '',
     );
   }
 }

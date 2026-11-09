@@ -25,10 +25,33 @@ class _CartScreenState extends State<CartScreen> {
 
   double get _totalPrice {
     double sum = 0.0;
-    for (MapEntry<Product, int> entry in widget.cartItems.entries) {
-      sum += entry.key.price * entry.value;
-    }
+    widget.cartItems.forEach((product, qty) {
+      sum += product.price * qty;
+    });
     return sum;
+  }
+
+  void _increaseQuantity(Product product) {
+    setState(() {
+      widget.cartItems[product] = (widget.cartItems[product] ?? 0) + 1;
+    });
+  }
+
+  void _decreaseQuantity(Product product) {
+    setState(() {
+      final current = widget.cartItems[product] ?? 1;
+      if (current > 1) {
+        widget.cartItems[product] = current - 1;
+      } else {
+        widget.cartItems.remove(product);
+      }
+    });
+  }
+
+  void _removeItem(Product product) {
+    setState(() {
+      widget.cartItems.remove(product);
+    });
   }
 
   Future<void> _submitOrder() async {
@@ -42,11 +65,7 @@ class _CartScreenState extends State<CartScreen> {
       String customerPhone = 'N/A';
 
       if (user != null) {
-        final userDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .get();
-
+        final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
         if (userDoc.exists && userDoc.data() != null) {
           final data = userDoc.data() as Map<String, dynamic>;
           customerName = data['name'] ?? customerName;
@@ -54,27 +73,26 @@ class _CartScreenState extends State<CartScreen> {
         }
       }
 
-      // Strictly typed List of Maps required by Firestore
       final List<dynamic> itemsList = [];
-      for (MapEntry<Product, int> entry in widget.cartItems.entries) {
+      widget.cartItems.forEach((product, qty) {
         itemsList.add({
-          'productName': entry.key.productName,
-          'price': entry.key.price,
-          'quantity': entry.value,
+          'productName': product.productName,
+          'price': product.price,
+          'quantity': qty,
         });
-      }
-
-      await FirebaseFirestore.instance.collection('orders').add({
-        'userId': user?.uid ?? 'guest',
-        'customerName': customerName,
-        'customerPhone': customerPhone,
-        'serviceType': _serviceType,
-        'tableOrAddress': _tableOrAddressController.text.trim(),
-        'items': itemsList,
-        'total': _totalPrice,
-        'status': 'Pending',
-        'timestamp': FieldValue.serverTimestamp(),
       });
+
+        await FirebaseFirestore.instance.collection('orders').add({
+            'userId': user?.uid ?? 'guest',
+            'customerName': customerName,
+            'customerPhone': customerPhone,
+            'serviceType': _serviceType,
+            'tableOrAddress': _tableOrAddressController.text.trim(),
+            'items': itemsList,
+            'total': _totalPrice,
+            'status': 'Pending',
+            'timestamp': FieldValue.serverTimestamp(), // Ensures exact placement time
+        });
 
       widget.onClearCart();
 
@@ -83,25 +101,20 @@ class _CartScreenState extends State<CartScreen> {
       showDialog(
         context: context,
         builder: (_) => AlertDialog(
-            backgroundColor: AppColors.latte, // Changed from AppColors.surface
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text(
-            "Order Placed!",
-            style: TextStyle(color: AppColors.espresso, fontWeight: FontWeight.bold),
-          ),
+          backgroundColor: AppColors.latte,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text("Order Placed!", style: TextStyle(color: AppColors.espresso, fontWeight: FontWeight.bold)),
           content: const Text(
             "Your order is sent to Yeyi's kitchen!",
-            ),
+            style: TextStyle(color: AppColors.espresso),
+          ),
           actions: [
             TextButton(
               onPressed: () {
                 Navigator.pop(context);
                 Navigator.pop(context);
               },
-              child: const Text(
-                'OK',
-                style: TextStyle(color: AppColors.caramel, fontWeight: FontWeight.bold),
-              ),
+              child: const Text('OK', style: TextStyle(color: AppColors.caramel, fontWeight: FontWeight.bold)),
             ),
           ],
         ),
@@ -133,10 +146,7 @@ class _CartScreenState extends State<CartScreen> {
       ),
       body: widget.cartItems.isEmpty
           ? const Center(
-              child: Text(
-                "Your tray is empty.",
-                style: TextStyle(color: AppColors.textMuted, fontSize: 16),
-              ),
+              child: Text("Your tray is empty.", style: TextStyle(color: AppColors.textMuted, fontSize: 16)),
             )
           : Column(
               children: [
@@ -144,13 +154,7 @@ class _CartScreenState extends State<CartScreen> {
                   child: ListView(
                     padding: const EdgeInsets.all(16),
                     children: [
-                      const Text(
-                        "Dining Option",
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.espresso,
-                        ),
-                      ),
+                      const Text("Dining Option", style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.espresso)),
                       const SizedBox(height: 8),
                       Row(
                         children: ['Dine-in', 'Takeout', 'Delivery'].map((type) {
@@ -183,39 +187,54 @@ class _CartScreenState extends State<CartScreen> {
                       TextField(
                         controller: _tableOrAddressController,
                         decoration: InputDecoration(
-                          labelText: _serviceType == 'Dine-in'
-                              ? 'Table Number'
-                              : 'Delivery Address / Pickup Note',
+                          labelText: _serviceType == 'Dine-in' ? 'Table Number' : 'Delivery Address / Pickup Note',
                           border: const OutlineInputBorder(),
                         ),
                       ),
                       const Divider(height: 32),
-                      const Text(
-                        "Items",
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.espresso,
-                        ),
-                      ),
+                      const Text("Tray Items (Tap - / + to Edit)", style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.espresso)),
                       const SizedBox(height: 8),
                       ...widget.cartItems.entries.map((entry) {
-                        final Product product = entry.key;
-                        final int qty = entry.value;
+                        final product = entry.key;
+                        final qty = entry.value;
                         return Card(
                           color: AppColors.surface,
                           margin: const EdgeInsets.only(bottom: 8),
-                          child: ListTile(
-                            title: Text(
-                              product.productName,
-                              style: const TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            subtitle: Text('₱${product.price.toStringAsFixed(0)} x $qty'),
-                            trailing: Text(
-                              '₱${(product.price * qty).toStringAsFixed(0)}',
-                              style: const TextStyle(
-                                color: AppColors.caramel,
-                                fontWeight: FontWeight.bold,
-                              ),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(product.productName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                      Text(
+                                        '₱${product.price.toStringAsFixed(0)} each',
+                                        style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                // Quantity Editor Controls
+                                Row(
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(Icons.remove_circle_outline, color: AppColors.caramel, size: 22),
+                                      onPressed: () => _decreaseQuantity(product),
+                                    ),
+                                    Text('$qty', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                                    IconButton(
+                                      icon: const Icon(Icons.add_circle_outline, color: AppColors.caramel, size: 22),
+                                      onPressed: () => _increaseQuantity(product),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                                      onPressed: () => _removeItem(product),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
                         );
@@ -234,22 +253,8 @@ class _CartScreenState extends State<CartScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text(
-                            "Total Amount",
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.espresso,
-                            ),
-                          ),
-                          Text(
-                            '₱${_totalPrice.toStringAsFixed(0)}',
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.caramel,
-                            ),
-                          ),
+                          const Text("Total Amount", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.espresso)),
+                          Text('₱${_totalPrice.toStringAsFixed(0)}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.caramel)),
                         ],
                       ),
                       const SizedBox(height: 14),
@@ -260,20 +265,12 @@ class _CartScreenState extends State<CartScreen> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.espresso,
                             foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(25),
-                            ),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
                           ),
                           onPressed: _isSubmitting ? null : _submitOrder,
                           child: _isSubmitting
                               ? const CircularProgressIndicator(color: Colors.white)
-                              : const Text(
-                                  "Confirm & Place Order",
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
+                              : const Text("Confirm & Place Order", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                         ),
                       ),
                     ],
